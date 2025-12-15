@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         'pending'
       )
       RETURNING id
-    `;
+    ` as Array<{ id: number }>;
 
     return NextResponse.json(
       {

@@ -3,6 +3,60 @@
 import { useState } from "react";
 import { MenuItem } from "@/lib/menu-data";
 
+interface OrderData {
+  orderId: number;
+  orderType: "table" | "delivery" | null;
+  tableNumber: number | null;
+  deliveryAddress: string | null;
+  deliveryNumber: string | null;
+  deliveryPhone: string | null;
+  deliveryTime: string | null;
+  items: Array<{ item: MenuItem; customizations: { removed: string[]; added: string[] } }>;
+  totalPrice: number;
+}
+
+function formatWhatsAppMessage(orderData: OrderData): string {
+  const { orderId, orderType, tableNumber, deliveryAddress, deliveryNumber, deliveryPhone, deliveryTime, items, totalPrice } = orderData;
+
+  let message = `🍽️ *NUOVO ORDINE - RISTORANTE LE GRAZIE*\n\n`;
+  message += `📋 *Ordine #${orderId}*\n\n`;
+
+  if (orderType === "table" && tableNumber !== null) {
+    message += `📍 *Tipo:* Al tavolo\n`;
+    message += `🪑 *Tavolo:* ${tableNumber}\n\n`;
+  } else if (orderType === "delivery") {
+    message += `📍 *Tipo:* Da asporto\n`;
+    if (deliveryAddress && deliveryNumber) {
+      message += `🏠 *Indirizzo:* ${deliveryAddress}, ${deliveryNumber}\n`;
+    }
+    if (deliveryPhone) {
+      message += `📱 *Telefono:* ${deliveryPhone}\n`;
+    }
+    if (deliveryTime) {
+      message += `⏰ *Consegna prevista:* ${deliveryTime} minuti\n`;
+    }
+    message += `\n`;
+  }
+
+  message += `📦 *Dettagli ordine:*\n`;
+  items.forEach(({ item, customizations }) => {
+    message += `\n• ${item.name} - €${item.price.toFixed(2)}`;
+    
+    if (customizations.removed.length > 0) {
+      message += `\n  ❌ Senza: ${customizations.removed.join(", ")}`;
+    }
+    
+    if (customizations.added.length > 0) {
+      message += `\n  ➕ Aggiunte: ${customizations.added.join(", ")}`;
+    }
+  });
+
+  message += `\n\n💰 *Totale: €${totalPrice.toFixed(2)}*\n`;
+  message += `\n⏱️ *Orario ordine:* ${new Date().toLocaleString("it-IT")}`;
+
+  return message;
+}
+
 interface OrderModalProps {
   items: Array<{ item: MenuItem; customizations: { removed: string[]; added: string[] } }>;
   totalPrice: number;
@@ -54,6 +108,24 @@ export default function OrderModal({ items, totalPrice, onClose }: OrderModalPro
       if (!response.ok) {
         throw new Error(data.error || "Errore durante la creazione dell'ordine");
       }
+
+      // Formatta il messaggio WhatsApp con i dati dell'ordine
+      const whatsappMessage = formatWhatsAppMessage({
+        orderId: data.orderId,
+        orderType,
+        tableNumber: orderType === "table" ? parseInt(tableNumber) : null,
+        deliveryAddress: orderType === "delivery" ? deliveryAddress : null,
+        deliveryNumber: orderType === "delivery" ? deliveryNumber : null,
+        deliveryPhone: orderType === "delivery" ? deliveryPhone : null,
+        deliveryTime: orderType === "delivery" ? deliveryTime : null,
+        items,
+        totalPrice,
+      });
+
+      // Apri WhatsApp con il messaggio precompilato
+      const whatsappNumber = "393478406079"; // +39 347 840 6079 senza spazi e prefisso +
+      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+      window.open(whatsappUrl, "_blank");
 
       alert(data.message);
       onClose();

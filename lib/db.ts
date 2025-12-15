@@ -1,10 +1,29 @@
 import { neon } from "@neondatabase/serverless";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is not set");
+// Lazy initialization to avoid errors during build time
+let sqlInstance: ReturnType<typeof neon> | null = null;
+
+function getSql() {
+  if (!sqlInstance) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL is not set");
+    }
+    sqlInstance = neon(process.env.DATABASE_URL);
+  }
+  return sqlInstance;
 }
 
-export const sql = neon(process.env.DATABASE_URL);
+// Export a proxy that initializes sql only when actually used
+export const sql = new Proxy({} as ReturnType<typeof neon>, {
+  get(_target, prop) {
+    const sql = getSql();
+    const value = (sql as any)[prop];
+    if (typeof value === 'function') {
+      return value.bind(sql);
+    }
+    return value;
+  },
+});
 
 // Database schema (run this in your Neon database)
 /*
