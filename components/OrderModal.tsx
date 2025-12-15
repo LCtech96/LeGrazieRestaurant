@@ -80,7 +80,13 @@ export default function OrderModal({ items, totalPrice, onClose }: OrderModalPro
     setIsSubmitting(true);
     setError(null);
 
+    // Genera un ID ordine temporaneo (timestamp) se il database non è disponibile
+    const tempOrderId = Date.now();
+    let orderId = tempOrderId;
+    let databaseSuccess = false;
+
     try {
+      // Prova a salvare nel database
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: {
@@ -105,35 +111,49 @@ export default function OrderModal({ items, totalPrice, onClose }: OrderModalPro
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Errore durante la creazione dell'ordine");
+      if (response.ok && data.orderId) {
+        orderId = data.orderId;
+        databaseSuccess = true;
       }
-
-      // Formatta il messaggio WhatsApp con i dati dell'ordine
-      const whatsappMessage = formatWhatsAppMessage({
-        orderId: data.orderId,
-        orderType,
-        tableNumber: orderType === "table" ? parseInt(tableNumber) : null,
-        deliveryAddress: orderType === "delivery" ? deliveryAddress : null,
-        deliveryNumber: orderType === "delivery" ? deliveryNumber : null,
-        deliveryPhone: orderType === "delivery" ? deliveryPhone : null,
-        deliveryTime: orderType === "delivery" ? deliveryTime : null,
-        items,
-        totalPrice,
-      });
-
-      // Apri WhatsApp con il messaggio precompilato
-      const whatsappNumber = "393478406079"; // +39 347 840 6079 senza spazi e prefisso +
-      const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
-      window.open(whatsappUrl, "_blank");
-
-      alert(data.message);
-      onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Errore sconosciuto");
-    } finally {
-      setIsSubmitting(false);
+      // Ignora errori del database, invieremo comunque via WhatsApp
+      console.error("Database error (non critico):", err);
     }
+
+    // Formatta e invia SEMPRE il messaggio WhatsApp, anche se il database fallisce
+    const whatsappMessage = formatWhatsAppMessage({
+      orderId,
+      orderType,
+      tableNumber: orderType === "table" ? parseInt(tableNumber) : null,
+      deliveryAddress: orderType === "delivery" ? deliveryAddress : null,
+      deliveryNumber: orderType === "delivery" ? deliveryNumber : null,
+      deliveryPhone: orderType === "delivery" ? deliveryPhone : null,
+      deliveryTime: orderType === "delivery" ? deliveryTime : null,
+      items,
+      totalPrice,
+    });
+
+    const whatsappNumber = "393478406079"; // +39 347 840 6079 senza spazi e prefisso +
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+    window.open(whatsappUrl, "_blank");
+
+    // Mostra messaggio di conferma
+    if (databaseSuccess) {
+      alert(
+        orderType === "table"
+          ? `Ordine confermato per il tavolo ${tableNumber}!`
+          : `Ordine da asporto confermato! Consegna prevista tra ${deliveryTime} minuti.`
+      );
+    } else {
+      alert(
+        orderType === "table"
+          ? `Ordine inviato via WhatsApp per il tavolo ${tableNumber}!`
+          : `Ordine inviato via WhatsApp! Consegna prevista tra ${deliveryTime} minuti.`
+      );
+    }
+
+    setIsSubmitting(false);
+    onClose();
   };
 
   return (
