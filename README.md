@@ -74,3 +74,5 @@ Apri [http://localhost:3000](http://localhost:3000) nel browser.
 - I bottoni social (Facebook, WhatsApp) mostrano attualmente un disclaimer
 - Le sezioni "Chi siamo" e "Asporto" mostrano un disclaimer temporaneo
 
+
+
